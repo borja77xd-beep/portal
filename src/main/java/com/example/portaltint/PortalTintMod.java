@@ -3,7 +3,7 @@ package com.example.portaltint;
 import com.example.portaltint.network.PortalTintFullSyncPayload;
 import com.example.portaltint.network.PortalTintUpdatePayload;
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.event.player.UseBlockCallback;
+import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -14,8 +14,10 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
+import net.minecraft.util.TypedActionResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,6 +36,12 @@ public class PortalTintMod implements ModInitializer {
 	/** Nivel de permiso requerido (2 = OP estándar de un servidor vanilla). */
 	private static final int REQUIRED_PERMISSION_LEVEL = 2;
 
+	/** Distancia máxima de alcance para detectar el portal, en bloques. */
+	private static final double MAX_REACH = 6.0;
+
+	/** Paso del rastreo manual de rayo, en bloques (más pequeño = más preciso). */
+	private static final double STEP = 0.1;
+
 	@Override
 	public void onInitialize() {
 		// Registro de los tipos de paquete (deben coincidir en cliente y servidor)
@@ -46,31 +54,33 @@ public class PortalTintMod implements ModInitializer {
 			sendFullSync(player);
 		});
 
-		// Evento principal: clic derecho sobre un bloque con un tinte en la mano
-		UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
+		// Evento principal: usar (clic derecho) un tinte, sin depender de a qué
+		// bloque "apunta" el motor, ya que nether_portal no tiene forma de colisión
+		// y por tanto nunca sería seleccionado como bloque clickeado por el juego.
+		UseItemCallback.EVENT.register((player, world, hand) -> {
 			if (world.isClient) {
-				return ActionResult.PASS;
+				return TypedActionResult.pass(player.getStackInHand(hand));
 			}
 			if (hand != Hand.MAIN_HAND) {
-				return ActionResult.PASS;
-			}
-
-			BlockPos clickedPos = hitResult.getBlockPos();
-			if (world.getBlockState(clickedPos).getBlock() != Blocks.NETHER_PORTAL) {
-				return ActionResult.PASS;
+				return TypedActionResult.pass(player.getStackInHand(hand));
 			}
 
 			if (!(player.getStackInHand(hand).getItem() instanceof DyeItem dyeItem)) {
-				return ActionResult.PASS;
+				return TypedActionResult.pass(player.getStackInHand(hand));
+			}
+
+			BlockPos portalPos = findLookedAtPortal(world, player);
+			if (portalPos == null) {
+				return TypedActionResult.pass(player.getStackInHand(hand));
 			}
 
 			if (!player.hasPermissionLevel(REQUIRED_PERMISSION_LEVEL)) {
 				player.sendMessage(Text.translatable("portaltint.no_permission"), true);
-				return ActionResult.FAIL;
+				return TypedActionResult.fail(player.getStackInHand(hand));
 			}
 
 			int color = dyeItem.getColor().getEntityColor();
-			List<BlockPos> portalBlocks = findConnectedPortalBlocks(world, clickedPos);
+			List<BlockPos> portalBlocks = findConnectedPortalBlocks(world, portalPos);
 
 			PortalTintState state = PortalTintState.get(world);
 			for (BlockPos pos : portalBlocks) {
@@ -83,8 +93,35 @@ public class PortalTintMod implements ModInitializer {
 				player.getStackInHand(hand).decrement(1);
 			}
 
-			return ActionResult.SUCCESS;
+			return TypedActionResult.success(player.getStackInHand(hand));
 		});
+	}
+
+	/**
+	 * Recorre manualmente la línea de mirada del jugador, paso a paso, buscando
+	 * el primer bloque NETHER_PORTAL. Necesario porque ese bloque tiene una forma
+	 * de colisión/contorno vacía y el juego no lo selecciona con el raycast normal.
+	 */
+	private static BlockPos findLookedAtPortal(net.minecraft.world.World world, net.minecraft.entity.player.PlayerEntity player) {
+		Vec3d start = player.getCameraPosVec(1.0f);
+		Vec3d direction = player.getRotationVec(1.0f);
+
+		BlockPos lastPos = null;
+		double distance = 0;
+		while (distance <= MAX_REACH) {
+			Vec3d point = start.add(direction.multiply(distance));
+			BlockPos pos = BlockPos.ofFloored(point.x, point.y, point.z);
+
+			if (!pos.equals(lastPos)) {
+				if (world.getBlockState(pos).getBlock() == Blocks.NETHER_PORTAL) {
+					return pos;
+				}
+				lastPos = pos;
+			}
+
+			distance += STEP;
+		}
+		return null;
 	}
 
 	/**
