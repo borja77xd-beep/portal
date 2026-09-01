@@ -1,6 +1,7 @@
 package com.example.portaltint;
 
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.PersistentState;
@@ -43,11 +44,11 @@ public class PortalTintState extends PersistentState {
 
 	private static PortalTintState createFromNbt(NbtCompound nbt, net.minecraft.registry.RegistryWrapper.WrapperLookup lookup) {
 		PortalTintState state = new PortalTintState();
-		NbtList list = nbt.getList("portals", NbtCompound.COMPOUND_TYPE.get());
+		NbtList list = nbt.getList("portals", NbtElement.COMPOUND_TYPE);
 		for (int i = 0; i < list.size(); i++) {
-			NbtCompound entry = list.getCompound(i).get();
-			BlockPos pos = new BlockPos(entry.getInt("x").orElse(0), entry.getInt("y").orElse(0), entry.getInt("z").orElse(0));
-			int color = entry.getInt("color").orElse(0xFFFFFF);
+			NbtCompound entry = list.getCompound(i);
+			BlockPos pos = new BlockPos(entry.getInt("x"), entry.getInt("y"), entry.getInt("z"));
+			int color = entry.contains("color") ? entry.getInt("color") : 0xFFFFFF;
 			state.colors.put(pos, color);
 		}
 		return state;
