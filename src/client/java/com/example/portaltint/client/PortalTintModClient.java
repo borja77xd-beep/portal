@@ -50,7 +50,7 @@ public class PortalTintModClient implements ClientModInitializer {
 			return COLOR_CACHE.getOrDefault(pos, DEFAULT_COLOR);
 		};
 
-		net.fabricmc.fabric.api.client.render.color.block.v1.BlockColorProviderRegistry
-				.registerBlockColorProvider(colorProvider, Blocks.NETHER_PORTAL);
+		net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry.BLOCK
+				.register(colorProvider, Blocks.NETHER_PORTAL);
 	}
 }
