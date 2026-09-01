@@ -6,7 +6,6 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.color.block.BlockColorProvider;
-import net.minecraft.client.render.block.BlockRenderView;
 import net.minecraft.util.math.BlockPos;
 
 import java.util.HashMap;
