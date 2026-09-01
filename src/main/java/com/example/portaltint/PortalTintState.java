@@ -41,7 +41,7 @@ public class PortalTintState extends PersistentState {
 		return colors.get(pos);
 	}
 
-	private static PortalTintState createFromNbt(NbtCompound nbt, net.minecraft.registry.wrapper.RegistryWrapper.WrapperLookup lookup) {
+	private static PortalTintState createFromNbt(NbtCompound nbt, net.minecraft.registry.RegistryWrapper.WrapperLookup lookup) {
 		PortalTintState state = new PortalTintState();
 		NbtList list = nbt.getList("portals", NbtCompound.COMPOUND_TYPE.get());
 		for (int i = 0; i < list.size(); i++) {
@@ -54,7 +54,7 @@ public class PortalTintState extends PersistentState {
 	}
 
 	@Override
-	public NbtCompound writeNbt(NbtCompound nbt, net.minecraft.registry.wrapper.RegistryWrapper.WrapperLookup lookup) {
+	public NbtCompound writeNbt(NbtCompound nbt, net.minecraft.registry.RegistryWrapper.WrapperLookup lookup) {
 		NbtList list = new NbtList();
 		for (Map.Entry<BlockPos, Integer> entry : colors.entrySet()) {
 			NbtCompound entryNbt = new NbtCompound();
